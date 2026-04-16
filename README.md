@@ -131,9 +131,45 @@ CLIENT MANAGEMENT
 
 ### GHL Account
 
-- **Location:** AllTheCalls (inside Brayden's GHL agency)
-- **GHL Location ID:** stored in Claude-build env vars (migrate to GHL custom values)
-- **GHL API Key:** stored in Claude-build env vars
+- **Location:** All The Calls AI
+- **GHL Location ID:** `PeMkLPdDHTeQ4OWJXrGC`
+- **GHL API Key (PIT):** `pit-5edab7ad-d4c1-4423-aa05-bae23d28658a`
+- **Company ID:** `A9ofIK7JOtpdIzATw90r`
+- **Timezone:** America/Chicago
+- **Date created:** April 9, 2026
+
+### GHL Custom Field IDs (created April 16, 2026)
+
+| Field | GHL ID | Field Key |
+|-------|--------|-----------|
+| Business Name | WAhvLYJEo8CKL4GPFMs3 | contact.business_name |
+| Business Phone | YCO4Q3Puf71skyYagGQN | contact.business_phone |
+| Business Email | JNELrvarBWv9d89EKeUr | contact.business_email |
+| Industry | 8o7fwZxbTN1INIFDXVrg | contact.industry |
+| Services Offered | UmYTQjqOIQR5XHsnLZOU | contact.services_offered |
+| Business Hours | MXxAHNvhFYRhKqQjzRA0 | contact.business_hours |
+| Greeting Style | Pp5uXJK5XHtgNP0fh3eO | contact.greeting_style |
+| Plan | pJoVKc74KTW0v2kjOfq0 | contact.plan |
+| Trillet Flow ID | GW83RmeAKGh3jAG5pyds | contact.trillet_flow_id |
+| Trillet Agent ID | FwN2YsED7waCFTAS1bdh | contact.trillet_agent_id |
+| Portal Access URL | agnp6UfqDAlmmF6V2d7o | contact.portal_access_url |
+| Signup Date | NtRjCcuUkmkJdFMgDpml | contact.signup_date |
+| Trial End Date | nkA0rZU4SXvk5X4qtXrQ | contact.trial_end_date |
+| Phone Number Assigned | 9SerJVybWXJipkd7bLQo | contact.phone_number_assigned |
+| Monthly Revenue | uzOEf3GhZfv4zT2PP1KD | contact.monthly_revenue |
+| Last Call Date | xVD0x9dNRSGt9Cu2CF2F | contact.last_call_date |
+| Total Calls | IzO9kKceKDd7HJGnw3bE | contact.total_calls |
+| Stripe Customer ID | tLGaTrYCZ9xjOHR63P99 | contact.stripe_customer_id |
+| Onboarding Status | 3TDbe3zY0zR5yLGZlqhE | contact.onboarding_status |
+
+### GHL Contacts (imported April 16, 2026)
+
+| Contact | GHL ID | Company | Trillet Agent |
+|---------|--------|---------|---------------|
+| Kenny Wright | Y1PDg65t5EHVZWNeMmf8 | Lonestar Key Properties | 69d87b5adbfdce87a176a564 |
+| Chris Waipa | 0uk2Lb8WcVCLqntvN7J2 | Mortgage Punk | 69d411962b714e68863865d1 |
+| Gia (Demo) | vqSRmF3auTuOAMMZchbl | All The Calls AI | 69d1997a9491b9a74426c02f |
+| Brayden (NLA) | dkvffJxALh7tVPMQOgx1 | Next Level ACQ | 69d9230d5b99a5d6bb454701 |
 
 ### Workflows to build
 
