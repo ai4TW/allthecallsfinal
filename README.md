@@ -171,6 +171,36 @@ CLIENT MANAGEMENT
 | Gia (Demo) | vqSRmF3auTuOAMMZchbl | All The Calls AI | 69d1997a9491b9a74426c02f |
 | Brayden (NLA) | dkvffJxALh7tVPMQOgx1 | Next Level ACQ | 69d9230d5b99a5d6bb454701 |
 
+### GHL Sales Pipeline (ID: B4PjH7tm6r1DhFrEaaKN)
+
+| Stage | ID | Position |
+|-------|-----|----------|
+| New Lead | 14d5a4d4-bd68-4063-8bf7-891e868e68ce | 0 |
+| Replied | 17992363-ac80-400f-821d-c96eecdfe7de | 1 |
+| Demo Booked | 3a76e30f-5d44-4880-ab25-0c0e1acb1011 | 2 |
+| Demo Completed | 29a11733-766e-40b2-ba08-8dd891aad803 | 3 |
+| Trial Started | 750ebb1d-aa7b-446a-9f9e-2f9f15e4e1ce | 4 |
+| Won - Paying | cd5e8ba7-e28a-4369-8d1c-7eb096e30cfb | 5 |
+| Lost | 4e259446-474d-40a0-9894-7460ec052c80 | 6 |
+
+TODO: Add "Active Client", "At Risk", "Churned" stages manually in GHL (API key lacks write scope for pipelines).
+
+### GHL API Keys
+
+| Key | Scopes | Use for |
+|-----|--------|---------|
+| `pit-5edab7ad-d4c1-4423-aa05-bae23d28658a` | Contacts, Custom Fields, Tags, Workflows, Funnels, Calendars | Most API work |
+| `pit-2d64f4b8-45c4-4109-a29b-730bbb951cb1` | Opportunities (read), Pipelines (read) | Pipeline/opportunity reads + creates |
+
+### Webhook Bridge (deployed)
+
+- **URL:** `https://allthecalls-webhook-bridge.vercel.app/api/create-agent`
+- **Repo:** `ai4TW/allthecalls-webhook-bridge`
+- **Vercel project:** `allthecallsai/allthecalls-webhook-bridge`
+- **Env vars:** TRILLET_API_KEY, TRILLET_WORKSPACE_ID, WEBHOOK_SECRET (all clean, no \n)
+- **Auth:** POST body must include `webhookSecret` matching the WEBHOOK_SECRET env var
+- **WEBHOOK_SECRET value:** `8-8zr6r0HT-KwJKYXoYIP5CI72C6MmkxNlb4MdOpxdc`
+
 ### Workflows to build
 
 1. **New Lead Capture** — Form submission → add to CRM → start nurture sequence
