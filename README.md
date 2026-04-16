@@ -1,136 +1,177 @@
-# AllTheCalls — Final State Snapshot
+# AllTheCalls — Master Knowledge Base
 
-> Last updated: April 14, 2026
-> Purpose: one-page handoff so any future Claude (or human) can pick up the AllTheCalls stack cold. Start here, then dive into the relevant repo.
+> Last updated: April 16, 2026
+> Purpose: Single source of truth for everything AllTheCalls. Any future Claude session starts here.
 
 ---
 
 ## TL;DR
 
-AllTheCalls.ai is a white-label AI phone receptionist SaaS built on top of Trillet AI. Clients sign up via Stripe, run a 4-step self-serve wizard, and land in a dashboard — no manual onboarding needed. A separate mobile-first **portal** at `app.allthecalls.ai` lets each client see their AI's call history, recordings, and transcripts. Brayden manages portal logins from a master `/admin` page and fires branded welcome emails via Resend.
+AllTheCalls.ai is a 24/7 AI phone receptionist SaaS built on **Trillet AI**. Businesses sign up, get an AI receptionist configured to their industry, and never miss a call again. The product is white-labeled Trillet under the AllTheCalls brand.
 
-## Projects
-
-| Thing | Repo | Vercel Project | Domain(s) |
-|---|---|---|---|
-| **Main marketing site + signup wizard + client dashboard** | `ai4TW/Claude-build` | `allthecallsai/allthecalls-ai` | `allthecalls.ai`, `www.allthecalls.ai` |
-| **Client portal** (call history / recordings / transcripts / PWA) | `ai4TW/allthecalls-portal` | `allthecallsai/allthecalls-portal` | `app.allthecalls.ai` |
-| **Rhonda Avera website** (separate client site, unrelated to ATC product) | `ai4TW/Rhondawebsite` | `allthecallsai/rhonda-website` | `getallthecalls.com`, `www.getallthecalls.com`, `card.getallthecalls.com` |
-| **This snapshot** | `ai4TW/allthecallsfinal` | — | — |
-
-All three ATC projects live under the Vercel team `allthecallsai`.
-
-## Stack
-
-- **Framework:** Next.js 15 (App Router) + React 19 + TypeScript
-- **Hosting:** Vercel (auto-deploys on push to `main`)
-- **Database:** Supabase — project `amvaplgwteeoxyutcegk` (`https://amvaplgwteeoxyutcegk.supabase.co`)
-- **Auth:** Custom HMAC-signed session cookies (not Supabase Auth for the portal; portal uses `/access/[token]` magic URLs)
-- **Payments:** Stripe embedded checkout (LIVE keys, 3 plans: Solo $199, Pro $349, Agency $599)
-- **Voice AI:** Trillet AI — Agency Plus plan, workspace `69cf4b468d2a8a6a8e39b684`
-- **Email:** Resend — sending domain `allthecalls.ai` (verified)
-- **Design:** "Midnight Intelligence" dark theme — `#08090f` bg, `#4cd7f6` cyan → `#7c3aed` violet → `#c4b5fd` lilac gradient, Space Grotesk font
+**As of April 16, 2026: We are migrating the entire stack into Go High Level (GHL).** The old Vercel/Supabase/Resend stack is being replaced. GHL handles website, CRM, email, automations, funnels, and client portal — all for ~$100/mo. Only Stripe (payments) and Trillet (voice AI) remain as external services.
 
 ---
 
-## The Portal (`app.allthecalls.ai`) — deep dive
+## Owner
 
-This is the newest piece and the most likely reason you're reading this doc.
+- **Name:** Brayden Myers
+- **Email:** brayden@nextlevelacq.com (personal), brayden@allthecalls.com (AllTheCalls), hello@allthecalls.ai (business)
+- **GitHub:** github.com/realbraydenm (org: ai4TW)
+- **Working style:** Not a coder. Wants autonomous systems. Prefers GUI management (GHL dashboard). Trusts Claude to make decisions and execute. Don't ask permission — build and present results. Fix things silently; only surface issues that require his input (credentials, business decisions).
 
-### Repo
+---
 
-- GitHub: https://github.com/ai4TW/allthecalls-portal
-- Local dev path (Brayden's machine): N/A — session scaffolded it in `/tmp/allthecalls-portal`; pull the repo to a permanent location next time
+## The Product
 
-### What it is
+**What we sell:** AI phone receptionists for any business — real estate, legal, medical, home services, etc.
 
-A mobile-first Next.js app where each AllTheCalls client logs in once and sees every call their AI receptionist has handled — call history, recordings, summaries, full transcripts. Installable as a PWA on iPhone/Android via home-screen.
+**How it works:**
+1. Business finds us (outreach, ads, referrals)
+2. They pick a plan and pay via Stripe (14-day free trial)
+3. Self-serve wizard configures their AI (business name, services, hours, greeting style)
+4. We create their Trillet Call Flow + Call Agent + Knowledge Base automatically
+5. Brayden assigns a phone number in Trillet dashboard (only manual step — no API for this)
+6. Client gets a welcome email with their portal login
+7. Client can see all calls, recordings, transcripts, and summaries in their portal
 
-### Auth model (important — no passwords)
+**Pricing (Stripe LIVE):**
+| Plan | Price/mo | Target |
+|------|----------|--------|
+| Solo | $199 | Single location |
+| Pro | $349 | Multi-location / busy |
+| Agency | $599 | Agencies managing multiple clients |
 
-- Each client has a row in Supabase `portal_users` with a long random `access_token`
-- Their login URL is `https://app.allthecalls.ai/access/{access_token}` — permanent, bookmark-able
-- Clicking it sets a 30-day HMAC-signed session cookie scoped to their `agent_id`
-- Server-side requests to Trillet always filter by `session.agentId` — zero cross-tenant leakage
-- Admin page (`/admin`) is gated by `ADMIN_PASSWORD` env var; separate 12-hour admin cookie
+**Demo line — Gia:**
+- Phone: +1 (316) 232-4777
+- Trillet Agent ID: `69d1997a9491b9a74426c02f`
+- Trillet Flow ID (pathway): `69d1997a9491b9a74426c040`
+- LLM: gpt-4.1, Voice: ElevenLabs Sarah, STT: Deepgram Flux
 
-### Supabase schema
+---
 
-```sql
--- Already applied in prod. Definition in supabase/migrations/001_portal_users.sql.
-create table public.portal_users (
-  id uuid primary key default gen_random_uuid(),
-  email text not null,
-  name text not null,
-  agent_id text not null,       -- Trillet voice agent ID
-  flow_id text,                 -- Trillet call flow ID
-  access_token text not null unique,
-  created_at timestamptz not null default now(),
-  last_login_at timestamptz,
-  email_sent_at timestamptz
-);
+## Architecture — NEW (GHL Migration)
 
-create unique index portal_users_email_agent_idx
-  on public.portal_users (lower(email), agent_id);
+### What's changing
+
+| Was (old stack) | Becomes (GHL) | Status |
+|-----------------|---------------|--------|
+| Vercel-hosted Next.js marketing site | GHL Funnel/Website | TODO |
+| Supabase database | GHL CRM + Custom Fields | TODO |
+| Resend email | GHL Email (SMTP built-in) | TODO |
+| Custom signup wizard (Next.js) | GHL Form + Workflow | TODO |
+| Custom client dashboard (/my) | GHL Client Portal or Membership Area | TODO |
+| Portal at app.allthecalls.ai (Next.js) | GHL Client Portal or keep as-is | TBD |
+| Stripe embedded checkout | Stripe via GHL integration | TODO |
+| Manual prospect outreach | GHL Workflows + Prospecting | TODO |
+
+### What stays the same
+
+| Service | Why it stays |
+|---------|-------------|
+| **Trillet AI** | The actual voice AI product — no replacement |
+| **Stripe** | Payment processing — GHL integrates natively |
+| **Domain: allthecalls.ai** | Point DNS to GHL instead of Vercel |
+
+### New simplified stack
+
+```
+GHL ($100/mo)
+  ├── Website / Funnel (replaces Vercel site)
+  ├── CRM (replaces Supabase)
+  ├── Email + SMS (replaces Resend)
+  ├── Workflows / Automations (replaces nothing — this is NEW capability)
+  │   ├── Lead gen sequences (cold email, SMS, follow-up)
+  │   ├── Onboarding automation (post-payment → create Trillet agent → welcome email)
+  │   └── Client nurture (check-ins, upsells, review requests)
+  ├── Pipeline (visual deal tracking)
+  ├── Calendar (booking calls with prospects)
+  └── Client Portal (call history — may keep app.allthecalls.ai or rebuild in GHL)
+
+Trillet AI (Agency Plus plan)
+  └── Voice AI engine — Call Flows, Call Agents, Knowledge Bases, Recordings
+
+Stripe (payment processor)
+  └── Subscriptions, trials, invoicing
 ```
 
-### Env vars (set in Vercel)
+### The automated business machine (target state)
 
-| Key | Purpose |
-|---|---|
-| `TRILLET_API_KEY` | Trillet REST auth |
-| `TRILLET_WORKSPACE_ID` | Trillet workspace scope |
-| `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-side DB writes (portal_users) |
-| `RESEND_API_KEY` | Welcome email sender |
-| `SESSION_SECRET` | HMAC for session + admin cookies |
-| `ADMIN_PASSWORD` | Master admin password (see credentials section) |
+```
+LEAD GENERATION
+  ├── GHL Prospecting → find businesses without AI receptionists
+  ├── Cold email sequence (5-7 touches over 14 days)
+  ├── SMS follow-up for engaged leads
+  ├── Facebook/Instagram ads → GHL funnel
+  └── All leads land in GHL CRM pipeline
 
-### Trillet API quirks that matter
+SALES
+  ├── Lead books a demo call via GHL Calendar
+  ├── OR: lead signs up self-serve via funnel
+  ├── Stripe processes payment (14-day trial)
+  └── Deal moves through pipeline automatically
 
-- **v1 `/api/call-history` list/detail is broken** — returns `Cannot read properties of undefined (reading 'length')` for Gia's agent regardless of filter params. **Do NOT use it.**
-- **v2 `/api/call-history/export-csv` (POST) is the source of truth.** Filters by `agentId`. Returns a CSV with 20+ columns (call ID, phone numbers, status, duration, summary, recording link column, transcript column if requested, etc). Portal parses this server-side on every page load.
-- **v2 `/api/recordings/{recordId}` (GET) streams the audio** as `audio/ogg`. The CSV's "Recording Link" column is empty, so the portal proxies through `/api/recording/[id]` to fetch + stream from Trillet.
-- **v1 `/api/call-flows` (GET) works** and is used by the admin page to populate the flow dropdown.
-- Recording capture is already enabled on the flow (`settings.enableRecording = true`). New calls have recordings; use `recordId` → v2 recordings endpoint.
+ONBOARDING (fully automated)
+  ├── Payment triggers GHL workflow
+  ├── Workflow fires webhook to create Trillet Call Flow + Agent + KB
+  ├── Welcome email sent via GHL with portal login
+  ├── Brayden assigns phone number (only manual step)
+  └── Follow-up sequence: day 1, day 3, day 7 check-ins
 
-### Admin page playbook
-
-1. Go to https://app.allthecalls.ai/admin/login
-2. Enter the master password (see credentials section below)
-3. **"Add a client login" form:**
-   - Type client email + a display name
-   - Pick their call flow from the dropdown (auto-populated from Trillet)
-   - Click "Generate login URL" → row is created in `portal_users`
-4. **"Active logins" list:**
-   - Each row has a copyable access URL
-   - Click "Send welcome email" → fires a fully branded Resend email with the "Open My Portal" button + iPhone/Android install instructions
-   - Click "Delete" → revokes access immediately
-5. **"Flows without a login"** — any Trillet flow that doesn't yet have a portal_user row
-
-### Current portal clients (as of this snapshot)
-
-Check `/admin` for the live list. At time of writing, the 4 flows available were:
-- Gia, All The Calls — agent `69d1997a9491b9a74426c02f`, flow `69d1997a9491b9a74426c040`
-- Gia, Next Level ACQ — agent `69d9230d5b99a5d6bb454701`, flow `69d9230d5b99a5d6bb454711`
-- Ria, Lonestar Key Properties (Kenny) — agent `69d87b5adbfdce87a176a564`, flow `69d87b5adbfdce87a176a574`
-- Roxy - Chris Waipa (Mortgage Punk) — agent `69d411962b714e68863865d1`, flow `69d411962b714e68863865e1`
+CLIENT MANAGEMENT
+  ├── Client portal shows call history, recordings, transcripts
+  ├── Monthly check-in emails (automated)
+  ├── Usage alerts (high call volume = upsell opportunity)
+  └── Review request sequence after 30 days
+```
 
 ---
 
-## Main site (`Claude-build` / `allthecalls.ai`) — brief
+## GHL Setup Details
 
-See the deeper `project_allthecalls.md` auto-memory file. Key points:
+### GHL Account
 
-- Local repo: `/Users/bmyer/Documents/Claude-build`
-- Self-serve signup wizard at `/welcome` (4 steps: Business → Services → AI → Password)
-- Signup creates Trillet flow + agent + KB + Supabase auth user + clients row in one transaction
-- Client dashboard at `/my` — call history, settings, AI management
-- Stripe embedded checkout (live), 14-day trial
-- Gia is the live demo receptionist — phone (316) 232-4777
-- The one lingering TODO is Stripe webhook 400 (signing secret) — which was likely the `\n` corruption and should now be fixed
+- **Location:** AllTheCalls (inside Brayden's GHL agency)
+- **GHL Location ID:** stored in Claude-build env vars (migrate to GHL custom values)
+- **GHL API Key:** stored in Claude-build env vars
 
-## Trillet reference
+### Workflows to build
+
+1. **New Lead Capture** — Form submission → add to CRM → start nurture sequence
+2. **Demo Booking** — Calendar trigger → send confirmation → reminder sequence
+3. **Self-Serve Signup** — Stripe payment → create Trillet agent (webhook) → welcome email → onboard sequence
+4. **Onboarding Drip** — Day 1/3/7/14/30 automated emails with tips, setup help, check-ins
+5. **Churn Prevention** — No calls in 14 days → "need help?" email → offer setup call
+6. **Review & Referral** — 30 days active → ask for Google review → referral incentive
+7. **Lead Gen Outreach** — Prospect list → cold email sequence → follow-up → pipeline
+
+### Funnel pages to build
+
+1. **Homepage** — Hero, benefits, social proof, demo CTA, pricing
+2. **Pricing page** — 3 plans, FAQ, Stripe checkout integration
+3. **Demo booking page** — Calendar embed, Gia demo number
+4. **Thank you / Welcome** — Post-payment, next steps
+5. **Setup wizard** — Multi-step form collecting business info for Trillet config
+
+### Trillet integration via GHL webhook
+
+When a client pays, GHL workflow fires a webhook that:
+1. Creates a Trillet Call Flow with the client's business details
+2. Creates a Trillet Call Agent (voice + STT + TTS config)
+3. Creates a Knowledge Base with their services, hours, FAQ
+4. Stores the flow ID + agent ID back in GHL custom fields on the contact
+5. Sends welcome email with portal access link
+
+This webhook handler needs to live somewhere that can run code. Options:
+- **GHL Custom Webhook action** (limited — can't run complex logic)
+- **A single serverless function** (one small API endpoint on Vercel or similar) that receives the webhook and talks to Trillet API
+- **Make.com / n8n** bridge (receives webhook, calls Trillet API, returns IDs to GHL)
+
+The Trillet agent creation is the one piece that needs code. Everything else is native GHL.
+
+---
+
+## Trillet Reference (unchanged)
 
 | Thing | Value |
 |---|---|
@@ -139,103 +180,154 @@ See the deeper `project_allthecalls.md` auto-memory file. Key points:
 | Workspace ID | `69cf4b468d2a8a6a8e39b684` |
 | Account email | `brayden@allthecalls.com` |
 | API base | `https://api.trillet.ai` |
-| Two-entity model | Every client has a **Call Flow** (holds KB + pathway + SMS config) AND a **Call Agent** (voice/STT/TTS). The flow's `agent._id` is the agent ID. Portal filters by agent ID. |
-| Phone number assignment | Manual only, via dashboard — no API |
 
-## GHL reference
+### Two-entity model (critical — don't confuse these)
 
-- GHL Location ID, API Key, Pipeline ID are in `Claude-build` env vars
-- Brayden doesn't want automation flowing through GHL for portal signups (stated April 14, 2026). Portal sends its own welcome emails via Resend directly. Revisit only if GHL workflows are needed for other flows.
+Each client gets TWO Trillet entities:
+- **Call Flow** (`flowId`) — holds Knowledge Base, pathway, SMS config, prompt, welcome message
+- **Call Agent** (`agentId`) — voice settings, STT, TTS
 
-## Known-working (as of this snapshot)
+The flow's `agent._id` is the agent ID. Portal filters by agent ID.
 
-- Marketing site + SEO
-- Signup wizard creating Trillet + Supabase resources end-to-end
-- Stripe checkout (live)
-- Portal login via access token, stats bar, call list, call detail, transcripts, summaries
-- Portal recording playback via `/api/recording/[id]` proxy
-- Portal CSV export via `/api/export`
-- Admin page: list flows, add login, send welcome email, delete user, duplicate detection
-- Resend emails from `hello@allthecalls.ai` (domain verified)
-- All env vars on both Vercel projects — audited for trailing `\n` corruption April 14, 2026
+### API endpoints that work
 
-## Known broken / TODO
+| Endpoint | Method | Works? | Notes |
+|----------|--------|--------|-------|
+| v1 `/api/call-flows` | GET | YES | Lists all flows — used by admin page |
+| v1 `/api/call-history` | GET | BROKEN | Don't use — returns undefined error |
+| v2 `/api/call-history/export-csv` | POST | YES | Source of truth for call data. Filter by `agentId`. Returns CSV. |
+| v2 `/api/recordings/{recordId}` | GET | YES | Streams audio/ogg |
+| v1 `/api/call-flows` | POST | YES | Creates new flow (used by signup wizard) |
+| v1 `/api/agents` | POST | YES | Creates new agent |
+| v1 `/api/knowledge-bases` | POST | YES | Creates new KB |
 
-- **4 orphan Ria agents** in Trillet workspace — must delete manually from Trillet dashboard (API 500s on delete)
-- **Sales pipeline** — no outreach has been sent; 500-prospect list built but not launched to Instantly.ai / FB groups yet
-- **Portal multi-device sync** — access URLs work on any device, but there's no "log out other devices" button yet
-- **Portal `/api/contact` on rhondawebsite** is just console.log — wire to Resend/CRM when ready
+### Phone number assignment
 
-## Gotchas you WILL run into
-
-1. **Trailing `\n` in Vercel env vars.** When values are pasted into the Vercel dashboard, trailing newlines get saved. `vercel env pull` escapes them as literal `\n` in the written .env file, but the Vercel runtime gets the REAL trailing newline. This breaks strict APIs (Resend especially). **Audit regularly:**
-   ```bash
-   vercel env pull /tmp/env.check --environment=production --yes
-   grep -nE '\\n"$' /tmp/env.check
-   ```
-   If anything matches, that var is corrupted.
-
-2. **Trillet v1 call-history endpoints are unreliable.** Always use the v2 export-csv endpoint + parse CSV server-side.
-
-3. **Trillet has two confusingly-named entities** ("Call Flow" vs "Call Agent"). In Claude-build's code, the variable `agentId` is usually actually the FLOW ID. In the portal, `agentId` always means the VOICE agent ID (used by v2 export-csv).
-
-4. **GoDaddy "Forwarding / Parking"** overrides DNS records. If you add A records at a registrar but the domain still resolves to GoDaddy parking IPs (13.248.243.5 / 216.150.1.1 / 76.223.105.230), disable Forwarding in Domain Settings — that's what's re-injecting them.
-
-5. **Vercel SSO deployment protection** is ON by default on new projects in the `allthecallsai` team. Disable via the Vercel API `PATCH /v9/projects/{name}?teamId=...` with `{"ssoProtection":null}` or new projects will 401 everyone.
-
-## Credentials reference (where to look, not what they are)
-
-- **Portal admin password**: Only Brayden has it. Saved in his password manager.
-- **Trillet API key**: Vercel env `TRILLET_API_KEY` on both projects
-- **Supabase service role**: Vercel env `SUPABASE_SERVICE_ROLE_KEY`
-- **Resend API key**: Vercel env `RESEND_API_KEY` — the one that starts `re_NyYJkV...` — if you see `re_...\n` in the pulled env file, it's corrupted; fix per gotcha #1
-- **Stripe LIVE keys**: Vercel env `STRIPE_SECRET_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-- **Supabase SQL editor**: https://supabase.com/dashboard/project/amvaplgwteeoxyutcegk/sql/new
-- **Vercel dashboard**: https://vercel.com/allthecallsai
-- **GoDaddy**: Brayden's account
-
-## Session restart checklist
-
-When restarting Claude to pick up work on AllTheCalls:
-
-1. Read this file (`allthecallsfinal/README.md`) first
-2. Read `/Users/bmyer/.claude/projects/-Users-bmyer/memory/project_allthecalls.md` — older but has deeper history
-3. Pull the relevant repo locally if not already there:
-   - `git clone git@github.com:ai4TW/Claude-build.git ~/Documents/Claude-build`
-   - `git clone git@github.com:ai4TW/allthecalls-portal.git ~/Documents/allthecalls-portal`
-4. Pull env vars: `cd <repo> && vercel env pull .env.local --environment=production --yes`
-5. Audit env vars for `\n` corruption (see gotchas)
-6. `npm install && npm run dev`
-7. Tell Claude: "read the allthecallsfinal README.md and continue where we left off"
-
-## Quick-reference commands
-
-```bash
-# Audit all Vercel env vars on a project for \n corruption
-vercel env pull /tmp/env.check --environment=production --yes
-grep -nE '\\n"$' /tmp/env.check
-
-# List Trillet flows (find agent IDs for new clients)
-API="..." WS="69cf4b468d2a8a6a8e39b684"
-curl -s "https://api.trillet.ai/v1/api/call-flows" \
-  -H "x-api-key: $API" -H "x-workspace-id: $WS" | jq '.[] | {name, id: ._id, agentId: .agent._id}'
-
-# Test Resend key
-curl -s "https://api.resend.com/domains" -H "Authorization: Bearer $RESEND_API_KEY"
-
-# Force-issue a Vercel SSL cert (if auto-issue lags)
-curl -X POST "https://api.vercel.com/v4/certs?teamId=team_hFImaLSamwUJVzU0LST7woUj" \
-  -H "Authorization: Bearer $VERCEL_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"cns":["<domain>"]}'
-
-# Disable SSO protection on a new Vercel project
-curl -X PATCH "https://api.vercel.com/v9/projects/<project-name>?teamId=team_hFImaLSamwUJVzU0LST7woUj" \
-  -H "Authorization: Bearer $VERCEL_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"ssoProtection":null}'
-```
+**Manual only.** No API. Brayden must assign in the Trillet dashboard after each new signup. This is the one bottleneck we can't automate until Trillet adds an API.
 
 ---
 
-*This file is maintained by Claude at Brayden's request. Update it when the shape of things changes, not after every little edit. When in doubt, `git log` in the portal and Claude-build repos is the real truth.*
+## Existing Clients (as of April 2026)
+
+| Client | Trillet Agent ID | Trillet Flow ID | Status |
+|--------|-----------------|-----------------|--------|
+| Gia, All The Calls (demo) | `69d1997a9491b9a74426c02f` | `69d1997a9491b9a74426c040` | Active |
+| Gia, Next Level ACQ | `69d9230d5b99a5d6bb454701` | `69d9230d5b99a5d6bb454711` | Active |
+| Ria, Lonestar Key Properties (Kenny) | `69d87b5adbfdce87a176a564` | `69d87b5adbfdce87a176a574` | Active |
+| Roxy, Chris Waipa (Mortgage Punk) | `69d411962b714e68863865d1` | `69d411962b714e68863865e1` | Active |
+
+4 orphan Ria agents exist in Trillet workspace — need manual deletion from Trillet dashboard (API returns 500 on delete).
+
+---
+
+## Stripe
+
+| Thing | Value |
+|---|---|
+| Account | `acct_1TIGs7IgJN5lMiut` |
+| Mode | LIVE |
+| Plans | Solo $199/mo, Pro $349/mo, Agency $599/mo |
+| Trial | 14 days |
+| Keys location | GHL custom values (migrating from Vercel env vars) |
+
+---
+
+## Old Stack (being retired)
+
+These are being replaced by GHL. Keep them running until GHL is live, then sunset.
+
+| Service | What it was | Retire when |
+|---------|-------------|-------------|
+| Vercel (`allthecallsai` team) | Hosted marketing site + portal | GHL site is live |
+| Supabase (`amvaplgwteeoxyutcegk`) | Database for portal_users, clients | GHL CRM has all contacts |
+| Resend (`allthecalls.ai` domain) | Transactional email | GHL email is configured |
+| Claude-build repo (`ai4TW/Claude-build`) | Next.js marketing site + wizard | GHL funnel replaces it |
+| allthecalls-portal repo (`ai4TW/allthecalls-portal`) | Client call history portal | TBD — may keep or rebuild in GHL |
+
+### Old Vercel env vars (for reference during migration)
+
+**allthecalls-ai project:**
+TRILLET_API_KEY, TRILLET_WORKSPACE_ID, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STRIPE_SECRET_KEY, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY, SESSION_SECRET, GHL_LOCATION_ID, GHL_API_KEY, GHL_PIPELINE_ID
+
+**allthecalls-portal project:**
+TRILLET_API_KEY, TRILLET_WORKSPACE_ID, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY, SESSION_SECRET, ADMIN_PASSWORD
+
+### Gotcha: Vercel env var trailing newline corruption
+Values pasted into Vercel dashboard get saved with trailing `\n`. This breaks strict APIs like Resend. Was cleaned on April 14, 2026. Won't matter once we're on GHL.
+
+---
+
+## Domains
+
+| Domain | Currently points to | Should point to |
+|--------|-------------------|-----------------|
+| allthecalls.ai | Vercel | GHL (when ready) |
+| www.allthecalls.ai | Vercel | GHL (when ready) |
+| app.allthecalls.ai | Vercel (portal) | TBD — keep or move to GHL |
+| getallthecalls.com | Vercel (Rhonda site) | No change |
+
+**Registrar:** GoDaddy (Brayden's account)
+
+**GoDaddy gotcha:** "Forwarding / Parking" overrides DNS records. If A records point to GoDaddy parking IPs (13.248.243.5 / 216.150.1.1 / 76.223.105.230), disable Forwarding in Domain Settings first.
+
+---
+
+## Other Brayden Projects (not AllTheCalls)
+
+### Nexus Intelligence (Paperclip AI)
+
+Autonomous AI company on Paperclip platform. AI tools for small businesses niche. Has 8 agents (Director, Research, Market Intel, Data, Writer, Publisher, Biz Dev, Client Success). Runs at localhost:3100. Newsletter via Beehiiv, email via Resend from news@oropath.ai. Separate from AllTheCalls.
+
+### Rhonda Avera Website
+
+Client site at getallthecalls.com. Hosted on Vercel under allthecallsai team. Unrelated to ATC product. `/api/contact` endpoint is just console.log — not wired up yet.
+
+---
+
+## Session Restart Checklist
+
+1. Read THIS file first (`~/Documents/allthecallsfinal/README.md`)
+2. Check memory files at `~/.claude/projects/-Users-bmyer/memory/`
+3. Don't explore codebases on startup — ask Brayden what needs done
+4. For GHL work: log into GHL dashboard, check current state of funnels/workflows
+5. For Trillet work: API key is in GHL custom values (or Vercel env vars during migration)
+6. Be autonomous. Build and present results. Don't ask unnecessary questions.
+
+---
+
+## Build Queue (April 16, 2026)
+
+### Phase 1: GHL Foundation
+- [ ] Set up AllTheCalls location in GHL (if not already done)
+- [ ] Configure GHL email sending domain (allthecalls.ai)
+- [ ] Connect Stripe to GHL
+- [ ] Build landing page funnel in GHL
+- [ ] Build pricing page with Stripe checkout
+- [ ] Set up GHL Pipeline (Lead → Demo → Trial → Active → Churned)
+- [ ] Import existing clients into GHL CRM
+
+### Phase 2: Automations
+- [ ] Build self-serve signup workflow (payment → Trillet agent creation → welcome email)
+- [ ] Build Trillet webhook handler (serverless function or Make.com bridge)
+- [ ] Build onboarding drip sequence (day 1/3/7/14/30)
+- [ ] Build lead capture form + nurture sequence
+- [ ] Build demo booking flow with calendar
+
+### Phase 3: Lead Gen Machine
+- [ ] Build cold outreach sequence (email + SMS, 5-7 touches)
+- [ ] Load 500-prospect list into GHL
+- [ ] Set up prospecting automation for finding new businesses
+- [ ] Connect Facebook/Instagram ads to GHL funnel
+- [ ] Build referral program workflow
+
+### Phase 4: Sunset Old Stack
+- [ ] Verify all GHL flows work end-to-end
+- [ ] Migrate portal functionality (call history) — keep app.allthecalls.ai or rebuild
+- [ ] Point allthecalls.ai DNS to GHL
+- [ ] Decommission Vercel projects
+- [ ] Cancel Supabase (free tier, but clean up)
+- [ ] Cancel Resend
+
+---
+
+*This file is the single source of truth for AllTheCalls. Updated by Claude at Brayden's direction. When in doubt, this doc wins.*
